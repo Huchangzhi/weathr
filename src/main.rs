@@ -60,14 +60,14 @@ async fn main() -> io::Result<()> {
     let mut config = match Config::load() {
         Ok(config) => config,
         Err(e) => {
-            eprintln!("Error loading config: {}", e);
-            eprintln!("\nFix or recreate it at:");
+            eprintln!("加载配置文件出错: {}", e);
+            eprintln!("\n请修复或重新创建于:");
             eprintln!(
-                "  Linux: ~/.config/weathr/config.toml (or $XDG_CONFIG_HOME/weathr/config.toml)"
+                "  Linux: ~/.config/weathr/config.toml (或 $XDG_CONFIG_HOME/weathr/config.toml)"
             );
             eprintln!("  macOS: ~/Library/Application Support/weathr/config.toml");
             eprintln!("  Windows: %APPDATA%\\weathr\\config.toml");
-            eprintln!("\nExample config.toml:");
+            eprintln!("\nconfig.toml 示例:");
             eprintln!("  [location]");
             eprintln!("  latitude = 52.52");
             eprintln!("  longitude = 13.41");
@@ -103,7 +103,7 @@ async fn main() -> io::Result<()> {
         info(
             config.silent,
             &format!(
-                "Location overridden via environment: ({:.4}, {:.4})",
+                "位置已通过环境变量覆盖: ({:.4}, {:.4})",
                 config.location.latitude, config.location.longitude
             ),
         );
@@ -115,19 +115,19 @@ async fn main() -> io::Result<()> {
         && !lat_from_env
         && !lon_from_env
     {
-        eprintln!("Warning: No location set, defaulting to Berlin (52.52, 13.41).");
+        eprintln!("警告: 未设置位置, 默认使用柏林 (52.52, 13.41)。");
     }
 
     // Auto-detect location if enabled
     if config.location.auto {
-        info(config.silent, "Auto-detecting location...");
+        info(config.silent, "正在自动检测位置...");
         match geolocation::detect_location().await {
             Ok(geo_loc) => {
                 if let Some(city) = &geo_loc.city {
                     info(
                         config.silent,
                         &format!(
-                            "Location detected: {} ({:.4}, {:.4})",
+                            "检测到位置: {} ({:.4}, {:.4})",
                             city, geo_loc.latitude, geo_loc.longitude
                         ),
                     );
@@ -135,7 +135,7 @@ async fn main() -> io::Result<()> {
                     info(
                         config.silent,
                         &format!(
-                            "Location detected: {:.4}, {:.4}",
+                            "检测到位置: {:.4}, {:.4}",
                             geo_loc.latitude, geo_loc.longitude
                         ),
                     );
@@ -158,7 +158,7 @@ async fn main() -> io::Result<()> {
             config::LocationDisplay::City | config::LocationDisplay::Mixed
         )
     {
-        info(config.silent, "Resolving city name...");
+        info(config.silent, "正在解析城市名称...");
         if let Some(city) = geolocation::reverse_geocode(
             config.location.latitude,
             config.location.longitude,
@@ -166,7 +166,7 @@ async fn main() -> io::Result<()> {
         )
         .await
         {
-            info(config.silent, &format!("City resolved: {}", city));
+            info(config.silent, &format!("城市已解析: {}", city));
             config.location.city = Some(city);
         }
     }
@@ -175,7 +175,7 @@ async fn main() -> io::Result<()> {
     let theme_id = config.normalized_theme();
     if theme_registry.set_active(theme_id).is_err() {
         eprintln!(
-            "Warning: theme '{}' is not registered, falling back to 'default'.",
+            "警告: 主题 '{}' 未注册, 回退到 'default'.",
             theme_id
         );
     }
@@ -215,7 +215,7 @@ async fn main() -> io::Result<()> {
     renderer.cleanup()?;
 
     if let Err(e) = result {
-        eprintln!("Application error: {}", e);
+        eprintln!("应用程序错误: {}", e);
         std::process::exit(1);
     }
 

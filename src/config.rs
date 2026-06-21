@@ -98,13 +98,13 @@ impl Config {
 
         if !config_path.exists() {
             eprintln!(
-                "Warning: Config file not found. Create one at {:?} to customize settings.",
+                "警告: 未找到配置文件。可在 {:?} 创建以自定义设置。",
                 config_path
             );
             let default = Self::default();
             if default.location.auto {
                 eprintln!(
-                    "Tip: Set latitude and longitude in config.toml for more accurate weather."
+                    "提示: 在 config.toml 中设置 latitude 和 longitude 以获得更准确的天气数据。"
                 );
             }
             let mut config = default;
@@ -180,11 +180,11 @@ impl Config {
             let has_lon = loc.get("longitude").is_some();
             if has_lat && !has_lon {
                 eprintln!(
-                    "Warning: latitude is set but longitude is missing, defaulting longitude to 13.41 (Berlin)."
+                    "警告: 已设置纬度但未设置经度, 经度将默认为 13.41 (柏林)。"
                 );
             } else if has_lon && !has_lat {
                 eprintln!(
-                    "Warning: longitude is set but latitude is missing, defaulting latitude to 52.52 (Berlin)."
+                    "警告: 已设置经度但未设置纬度, 纬度将默认为 52.52 (柏林)。"
                 );
             }
         }

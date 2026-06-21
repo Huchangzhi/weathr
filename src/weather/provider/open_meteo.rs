@@ -20,6 +20,10 @@ pub struct OpenMeteoProvider {
 #[derive(Debug, Deserialize)]
 struct OpenMeteoResponse {
     current: CurrentWeather,
+    #[serde(default)]
+    daily: Option<DailyData>,
+    #[serde(default)]
+    hourly: Option<HourlyData>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -33,6 +37,19 @@ struct CurrentWeather {
     weather_code: i32,
     wind_speed_10m: f64,
     wind_direction_10m: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct DailyData {
+    temperature_2m_max: Vec<f64>,
+    temperature_2m_min: Vec<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HourlyData {
+    time: Vec<String>,
+    #[serde(deserialize_with = "deserialize_i32_vec_from_numbers")]
+    weather_code: Vec<i32>,
 }
 
 fn deserialize_i32_from_number<'de, D>(deserializer: D) -> Result<i32, D::Error>
@@ -57,6 +74,92 @@ where
     }
 }
 
+fn deserialize_i32_vec_from_numbers<'de, D>(deserializer: D) -> Result<Vec<i32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Number {
+        Integer(i32),
+        Float(f64),
+    }
+
+    let numbers: Vec<Number> = Vec::deserialize(deserializer)?;
+    numbers
+        .into_iter()
+        .map(|n| match n {
+            Number::Integer(v) => Ok(v),
+            Number::Float(v) => {
+                if !v.is_finite() {
+                    Err(de::Error::custom("expected a finite numeric value"))
+                } else {
+                    Ok(v.round() as i32)
+                }
+            }
+        })
+        .collect()
+}
+
+fn wmo_code_group(code: i32) -> u8 {
+    match code {
+        0..=3 => 0,
+        45 | 48 => 1,
+        51..=67 => 2,
+        71..=77 => 3,
+        80..=86 => 2,
+        95..=99 => 4,
+        _ => 0,
+    }
+}
+
+fn estimate_condition_duration(
+    current_time: &str,
+    current_code: i32,
+    hourly: &HourlyData,
+) -> Option<f64> {
+    use chrono::NaiveDateTime;
+
+    let current_dt = current_time
+        .parse::<NaiveDateTime>()
+        .or_else(|_| NaiveDateTime::parse_from_str(current_time, "%Y-%m-%dT%H:%M"))
+        .ok()?;
+
+    let current_hour = current_dt.format("%Y-%m-%dT%H:00").to_string();
+    let current_group = wmo_code_group(current_code);
+
+    let start_idx = hourly
+        .time
+        .iter()
+        .position(|t| t == &current_hour)
+        .unwrap_or_else(|| {
+            hourly
+                .time
+                .iter()
+                .position(|t| t > &current_hour)
+                .unwrap_or(hourly.time.len())
+        });
+
+    if start_idx >= hourly.weather_code.len() {
+        return None;
+    }
+
+    let mut count = 0.0;
+    for i in start_idx..hourly.weather_code.len().min(start_idx + 24) {
+        if wmo_code_group(hourly.weather_code[i]) == current_group {
+            count += 1.0;
+        } else {
+            break;
+        }
+    }
+
+    if count == 0.0 {
+        None
+    } else {
+        Some(count)
+    }
+}
+
 impl OpenMeteoProvider {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
@@ -64,8 +167,8 @@ impl OpenMeteoProvider {
             .connect_timeout(Duration::from_secs(10))
             .build()
             .unwrap_or_else(|e| {
-                eprintln!("Warning: Failed to create custom HTTP client: {}", e);
-                eprintln!("Using default client with standard timeout settings.");
+                eprintln!("警告: 创建自定义 HTTP 客户端失败: {}", e);
+                eprintln!("使用默认客户端及标准超时设置。");
                 reqwest::Client::new()
             });
 
@@ -100,7 +203,7 @@ impl OpenMeteoProvider {
 
     fn build_url(&self, location: &WeatherLocation, units: &WeatherUnits) -> String {
         format!(
-            "{}?latitude={}&longitude={}&current=temperature_2m,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m&temperature_unit={}&wind_speed_unit={}&precipitation_unit={}&timezone=auto",
+            "{}?latitude={}&longitude={}&current=temperature_2m,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min&hourly=weather_code&temperature_unit={}&wind_speed_unit={}&precipitation_unit={}&timezone=auto",
             self.base_url,
             location.latitude,
             location.longitude,
@@ -142,7 +245,22 @@ impl WeatherProvider for OpenMeteoProvider {
             .await
             .map_err(|e| WeatherError::Network(NetworkError::from_reqwest(e, &url, 30)))?;
 
-        let moon_phase = Some(0.5);
+        let daily_high = data.daily.as_ref().and_then(|d| {
+            d.temperature_2m_max
+                .first()
+                .map(|t| normalize_temperature(*t, units.temperature))
+        });
+
+        let daily_low = data.daily.as_ref().and_then(|d| {
+            d.temperature_2m_min
+                .first()
+                .map(|t| normalize_temperature(*t, units.temperature))
+        });
+
+        let condition_duration_hours =
+            data.hourly
+                .as_ref()
+                .and_then(|h| estimate_condition_duration(&data.current.time, data.current.weather_code, h));
 
         Ok(WeatherProviderResponse {
             weather_code: data.current.weather_code,
@@ -151,9 +269,12 @@ impl WeatherProvider for OpenMeteoProvider {
             wind_speed: normalize_wind_speed(data.current.wind_speed_10m, units.wind_speed),
             wind_direction: data.current.wind_direction_10m,
             sun: CelestialEvents::only_day(data.current.is_day),
-            moon_phase,
+            moon_phase: Some(0.5),
             timestamp: data.current.time,
             attribution: self.get_attribution().to_string(),
+            daily_high,
+            daily_low,
+            condition_duration_hours,
         })
     }
 }
@@ -184,5 +305,36 @@ mod tests {
             OpenMeteoProvider::precipitation_unit_param(&PrecipitationUnit::Mm),
             "mm"
         );
+    }
+
+    #[test]
+    fn test_wmo_code_group() {
+        assert_eq!(wmo_code_group(0), 0);
+        assert_eq!(wmo_code_group(2), 0);
+        assert_eq!(wmo_code_group(45), 1);
+        assert_eq!(wmo_code_group(61), 2);
+        assert_eq!(wmo_code_group(71), 3);
+        assert_eq!(wmo_code_group(80), 2);
+        assert_eq!(wmo_code_group(95), 4);
+    }
+
+    #[test]
+    fn test_estimate_condition_duration() {
+        let hourly = HourlyData {
+            time: vec![
+                "2024-01-01T12:00".to_string(),
+                "2024-01-01T13:00".to_string(),
+                "2024-01-01T14:00".to_string(),
+                "2024-01-01T15:00".to_string(),
+                "2024-01-01T16:00".to_string(),
+            ],
+            weather_code: vec![0, 1, 2, 61, 61],
+        };
+
+        let duration = estimate_condition_duration("2024-01-01T12:00", 0, &hourly);
+        assert_eq!(duration, Some(3.0));
+
+        let duration = estimate_condition_duration("2024-01-01T15:00", 61, &hourly);
+        assert_eq!(duration, Some(2.0));
     }
 }

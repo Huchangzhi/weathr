@@ -201,10 +201,13 @@ impl WeatherProvider for MetOfficeProvider {
                 "windSpeed10m",
             )?,
             wind_direction: current_weather.wind_direction_from_10m as f64,
-            sun: CelestialEvents::from_bool(true), // Defaults - Theses will be gathered by the supplementary provider
+            sun: CelestialEvents::from_bool(true),
             moon_phase: Some(0.5),
             timestamp: current_weather.time,
             attribution: self.get_attribution().to_string(),
+            daily_high: None,
+            daily_low: None,
+            condition_duration_hours: None,
         };
 
         // A provider should ask something else if it doesn't have the data, the provider shouldn't have to care about

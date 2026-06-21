@@ -10,7 +10,7 @@ pub struct AppState {
     pub is_offline: bool,
     pub weather_conditions: WeatherConditions,
     pub loading_state: LoadingState,
-    pub cached_weather_info: String,
+    pub cached_weather_info: Vec<String>,
     pub weather_info_needs_update: bool,
     pub location: WeatherLocation,
     pub city_name: Option<String>,
@@ -32,7 +32,7 @@ impl AppState {
             is_offline: false,
             weather_conditions: WeatherConditions::default(),
             loading_state: LoadingState::new(),
-            cached_weather_info: String::new(),
+            cached_weather_info: Vec::new(),
             weather_info_needs_update: true,
             location,
             city_name,
@@ -71,23 +71,32 @@ impl AppState {
     pub fn get_condition_text(&self) -> &str {
         if let Some(ref weather) = self.current_weather {
             match weather.condition {
-                WeatherCondition::Clear => "Clear",
-                WeatherCondition::Cloudy => "Cloudy",
-                WeatherCondition::PartlyCloudy => "Partly Cloudy",
-                WeatherCondition::Overcast => "Overcast",
-                WeatherCondition::Fog => "Fog",
-                WeatherCondition::Drizzle => "Drizzle",
-                WeatherCondition::FreezingRain => "Freezing Rain",
-                WeatherCondition::Rain => "Rain",
-                WeatherCondition::Snow => "Snow",
-                WeatherCondition::SnowGrains => "Snow Grains",
-                WeatherCondition::RainShowers => "Rain Showers",
-                WeatherCondition::SnowShowers => "Snow Showers",
-                WeatherCondition::Thunderstorm => "Thunderstorm",
-                WeatherCondition::ThunderstormHail => "Thunderstorm with Hail",
+                WeatherCondition::Clear => "晴",
+                WeatherCondition::Cloudy => "多云",
+                WeatherCondition::PartlyCloudy => "局部多云",
+                WeatherCondition::Overcast => "阴",
+                WeatherCondition::Fog => "雾",
+                WeatherCondition::Drizzle => "毛毛雨",
+                WeatherCondition::FreezingRain => "冻雨",
+                WeatherCondition::Rain => "雨",
+                WeatherCondition::Snow => "雪",
+                WeatherCondition::SnowGrains => "雪粒",
+                WeatherCondition::RainShowers => "阵雨",
+                WeatherCondition::SnowShowers => "阵雪",
+                WeatherCondition::Thunderstorm => "雷暴",
+                WeatherCondition::ThunderstormHail => "雷暴伴冰雹",
             }
         } else {
-            "Loading"
+            "加载中"
+        }
+    }
+
+    fn format_duration(duration_hours: Option<f64>) -> String {
+        match duration_hours {
+            Some(h) if h < 1.0 => "< 1小时".to_string(),
+            Some(h) if h >= 24.0 => "≥24小时".to_string(),
+            Some(h) => format!("约{}小时", h as u32),
+            None => "--".to_string(),
         }
     }
 
@@ -100,14 +109,14 @@ impl AppState {
             String::new()
         } else {
             let (lat_value, lat_dir) = if self.location.latitude >= 0.0 {
-                (self.location.latitude, "N")
+                (self.location.latitude, "北")
             } else {
-                (-self.location.latitude, "S")
+                (-self.location.latitude, "南")
             };
             let (lon_value, lon_dir) = if self.location.longitude >= 0.0 {
-                (self.location.longitude, "E")
+                (self.location.longitude, "东")
             } else {
-                (-self.location.longitude, "W")
+                (-self.location.longitude, "西")
             };
             let coords = format!("{:.2}°{}, {:.2}°{}", lat_value, lat_dir, lon_value, lon_dir);
             let label = match self.location_display {
@@ -121,7 +130,7 @@ impl AppState {
                     None => coords,
                 },
             };
-            format!(" | Location: {}", label)
+            format!(" | 位置: {}", label)
         };
 
         self.cached_weather_info = if let Some(ref weather) = self.current_weather {
@@ -130,10 +139,10 @@ impl AppState {
             let (precip, precip_unit) =
                 format_precipitation(weather.precipitation, self.units.precipitation);
 
-            let offline_indicator = if self.is_offline { "OFFLINE | " } else { "" };
+            let offline_indicator = if self.is_offline { "离线 | " } else { "" };
 
-            format!(
-                "{}Weather: {} | Temp: {:.1}{} | Wind: {:.1}{} | Precip: {:.1}{}{} | Press 'q' to quit",
+            let row1 = format!(
+                "{}天气: {} | 温度: {:.1}{} | 风速: {:.1}{} | 降水: {:.1}{}{}",
                 offline_indicator,
                 self.get_condition_text(),
                 temp,
@@ -143,9 +152,31 @@ impl AppState {
                 precip,
                 precip_unit,
                 location_str
-            )
+            );
+
+            let (high_str, low_str) = if let (Some(high), Some(low)) =
+                (weather.daily_high, weather.daily_low)
+            {
+                let (high_val, high_unit) = format_temperature(high, self.units.temperature);
+                let (low_val, low_unit) = format_temperature(low, self.units.temperature);
+                (
+                    format!("{:.0}{}", high_val, high_unit),
+                    format!("{:.0}{}", low_val, low_unit),
+                )
+            } else {
+                ("--".to_string(), "--".to_string())
+            };
+
+            let duration_str = Self::format_duration(weather.condition_duration_hours);
+
+            let row2 = format!(
+                "最高: {} | 最低: {} | 预计持续: {} | 按'q'退出",
+                high_str, low_str, duration_str
+            );
+
+            vec![row1, row2]
         } else {
-            format!("Weather: Loading... {}", self.loading_state.current_char())
+            vec![format!("天气: 加载中... {}", self.loading_state.current_char())]
         };
 
         self.weather_info_needs_update = false;
@@ -263,6 +294,9 @@ mod tests {
             timestamp: "2024-01-01T12:00:00Z".to_string(),
             attribution: "".to_string(),
             sun: CelestialEvents::from_bool(true),
+            daily_high: None,
+            daily_low: None,
+            condition_duration_hours: None,
         };
         app.update_weather(weather);
 
@@ -271,68 +305,68 @@ mod tests {
 
     #[test]
     fn test_new_york_coordinates() {
-        // New York: 40.7128°N, 74.0060°W (positive lat, negative lon)
         let mut app = create_app_state(40.7128, -74.0060);
         app.update_cached_info();
 
-        println!("NYC: {}", app.cached_weather_info);
-        assert!(app.cached_weather_info.contains("40.71°N"));
-        assert!(app.cached_weather_info.contains("74.01°W"));
+        let info = app.cached_weather_info.join(" ");
+        println!("NYC: {}", info);
+        assert!(info.contains("40.71°北"));
+        assert!(info.contains("74.01°西"));
     }
 
     #[test]
     fn test_sydney_coordinates() {
-        // Sydney: 33.8688°S, 151.2093°E (negative lat, positive lon)
         let mut app = create_app_state(-33.8688, 151.2093);
         app.update_cached_info();
 
-        println!("Sydney: {}", app.cached_weather_info);
-        assert!(app.cached_weather_info.contains("33.87°S"));
-        assert!(app.cached_weather_info.contains("151.21°E"));
+        let info = app.cached_weather_info.join(" ");
+        println!("Sydney: {}", info);
+        assert!(info.contains("33.87°南"));
+        assert!(info.contains("151.21°东"));
     }
 
     #[test]
     fn test_london_coordinates() {
-        // London: 51.5074°N, 0.1278°W (positive lat, negative lon near 0)
         let mut app = create_app_state(51.5074, -0.1278);
         app.update_cached_info();
 
-        println!("London: {}", app.cached_weather_info);
-        assert!(app.cached_weather_info.contains("51.51°N"));
-        assert!(app.cached_weather_info.contains("0.13°W"));
+        let info = app.cached_weather_info.join(" ");
+        println!("London: {}", info);
+        assert!(info.contains("51.51°北"));
+        assert!(info.contains("0.13°西"));
     }
 
     #[test]
     fn test_sao_paulo_coordinates() {
-        // São Paulo: 23.5505°S, 46.6333°W (negative lat, negative lon)
         let mut app = create_app_state(-23.5505, -46.6333);
         app.update_cached_info();
 
-        println!("São Paulo: {}", app.cached_weather_info);
-        assert!(app.cached_weather_info.contains("23.55°S"));
-        assert!(app.cached_weather_info.contains("46.63°W"));
+        let info = app.cached_weather_info.join(" ");
+        println!("São Paulo: {}", info);
+        assert!(info.contains("23.55°南"));
+        assert!(info.contains("46.63°西"));
     }
 
     #[test]
     fn test_tokyo_coordinates() {
-        // Tokyo: 35.6762°N, 139.6503°E (positive lat, positive lon)
         let mut app = create_app_state(35.6762, 139.6503);
         app.update_cached_info();
 
-        println!("Tokyo: {}", app.cached_weather_info);
-        assert!(app.cached_weather_info.contains("35.68°N"));
-        assert!(app.cached_weather_info.contains("139.65°E"));
+        let info = app.cached_weather_info.join(" ");
+        println!("Tokyo: {}", info);
+        assert!(info.contains("35.68°北"));
+        assert!(info.contains("139.65°东"));
     }
 
     #[test]
     fn test_equator_prime_meridian() {
-        // Null Island: 0°, 0° (exactly at equator and prime meridian)
         let mut app = create_app_state(0.0, 0.0);
         app.update_cached_info();
 
-        println!("Null Island: {}", app.cached_weather_info);
-        assert!(app.cached_weather_info.contains("0.00°N"));
-        assert!(app.cached_weather_info.contains("0.00°E"));
+        let info = app.cached_weather_info.join(" ");
+        println!("Null Island: {}", info);
+        assert!(info.contains("0.00°北"));
+        assert!(info.contains("0.00°东"));
     }
 
     #[test]
@@ -345,11 +379,9 @@ mod tests {
         );
         app.update_cached_info();
 
-        assert!(
-            app.cached_weather_info
-                .contains("Location: 34.08°N, 84.29°W")
-        );
-        assert!(!app.cached_weather_info.contains("Alpharetta"));
+        let info = app.cached_weather_info.join(" ");
+        assert!(info.contains("位置: 34.08°北, 84.29°西"));
+        assert!(!info.contains("Alpharetta"));
     }
 
     #[test]
@@ -362,8 +394,9 @@ mod tests {
         );
         app.update_cached_info();
 
-        assert!(app.cached_weather_info.contains("Location: Alpharetta"));
-        assert!(!app.cached_weather_info.contains("34.08°N"));
+        let info = app.cached_weather_info.join(" ");
+        assert!(info.contains("位置: Alpharetta"));
+        assert!(!info.contains("34.08°北"));
     }
 
     #[test]
@@ -371,10 +404,8 @@ mod tests {
         let mut app = create_app_state_full(34.0754, -84.2941, None, LocationDisplay::City);
         app.update_cached_info();
 
-        assert!(
-            app.cached_weather_info
-                .contains("Location: 34.08°N, 84.29°W")
-        );
+        let info = app.cached_weather_info.join(" ");
+        assert!(info.contains("位置: 34.08°北, 84.29°西"));
     }
 
     #[test]
@@ -387,10 +418,8 @@ mod tests {
         );
         app.update_cached_info();
 
-        assert!(
-            app.cached_weather_info
-                .contains("Location: Alpharetta (34.08°N, 84.29°W)")
-        );
+        let info = app.cached_weather_info.join(" ");
+        assert!(info.contains("位置: Alpharetta (34.08°北, 84.29°西)"));
     }
 
     #[test]
@@ -398,10 +427,35 @@ mod tests {
         let mut app = create_app_state_full(34.0754, -84.2941, None, LocationDisplay::Mixed);
         app.update_cached_info();
 
-        assert!(
-            app.cached_weather_info
-                .contains("Location: 34.08°N, 84.29°W")
-        );
-        assert!(!app.cached_weather_info.contains("("));
+        let info = app.cached_weather_info.join(" ");
+        assert!(info.contains("位置: 34.08°北, 84.29°西"));
+        assert!(!info.contains("("));
+    }
+
+    #[test]
+    fn test_two_row_display_with_daily_data() {
+        let mut app = create_app_state(52.52, 13.41);
+        if let Some(ref mut weather) = app.current_weather {
+            weather.daily_high = Some(25.0);
+            weather.daily_low = Some(15.0);
+            weather.condition_duration_hours = Some(3.0);
+        }
+        app.update_cached_info();
+
+        assert_eq!(app.cached_weather_info.len(), 2);
+        assert!(app.cached_weather_info[0].contains("天气:"));
+        assert!(app.cached_weather_info[1].contains("最高:"));
+        assert!(app.cached_weather_info[1].contains("25"));
+        assert!(app.cached_weather_info[1].contains("15"));
+        assert!(app.cached_weather_info[1].contains("约3小时"));
+    }
+
+    #[test]
+    fn test_two_row_display_without_daily_data() {
+        let mut app = create_app_state(52.52, 13.41);
+        app.update_cached_info();
+
+        assert_eq!(app.cached_weather_info.len(), 2);
+        assert!(app.cached_weather_info[1].contains("--"));
     }
 }

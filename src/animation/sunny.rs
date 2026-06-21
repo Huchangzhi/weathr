@@ -261,6 +261,9 @@ mod tests {
             moon_phase: None,
             timestamp: "2024-01-01T21:00:00Z".to_string(),
             attribution: String::new(),
+            daily_high: None,
+            daily_low: None,
+            condition_duration_hours: None,
         });
         let conditions = WeatherConditions {
             sun,
@@ -303,6 +306,9 @@ mod tests {
             moon_phase: None,
             timestamp: "n/a".to_string(),
             attribution: String::new(),
+            daily_high: None,
+            daily_low: None,
+            condition_duration_hours: None,
         });
         let conditions = WeatherConditions {
             sun,

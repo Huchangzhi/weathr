@@ -47,7 +47,7 @@ fn resolve_theme_bindings(
     if scene_missing {
         if theme_id != DEFAULT_THEME_ID {
             eprintln!(
-                "Warning: theme '{}' references missing scene '{}'. Falling back to '{}'.",
+                "警告: 主题 '{}' 引用了不存在的场景 '{}', 回退到 '{}'.",
                 theme_id, scene_id, DEFAULT_THEME_ID
             );
             let fallback_theme = themes
@@ -73,7 +73,7 @@ fn resolve_theme_bindings(
             Some(id)
         } else {
             eprintln!(
-                "Warning: theme '{}' references missing overlay '{}'. Overlay disabled.",
+                "警告: 主题 '{}' 引用了不存在的叠加层 '{}', 叠加层已禁用.",
                 theme_id, id
             );
             None
@@ -118,6 +118,9 @@ fn generate_offline_weather(rng: &mut impl rand::Rng) -> WeatherData {
         moon_phase: Some(0.5),
         timestamp: now.format("%Y-%m-%dT%H:%M:%S").to_string(),
         attribution: "".to_string(),
+        daily_high: None,
+        daily_low: None,
+        condition_duration_hours: None,
     }
 }
 
@@ -193,6 +196,9 @@ impl App {
                 moon_phase: Some(0.5),
                 timestamp: "simulated".to_string(),
                 attribution: "".to_string(),
+                daily_high: None,
+                daily_low: None,
+                condition_duration_hours: None,
             };
 
             let rain_intensity = weather.condition.rain_intensity();
@@ -257,7 +263,7 @@ impl App {
 
     pub async fn run(&mut self, renderer: &mut TerminalRenderer) -> io::Result<()> {
         let mut rng = rand::rng();
-        let mut attribution = "Awaiting weather data".to_string();
+        let mut attribution = "等待天气数据".to_string();
 
         loop {
             match self.weather_receiver.try_recv() {
@@ -284,11 +290,11 @@ impl App {
                     Err(error) => {
                         let error_msg = match &error {
                             WeatherError::Network(net_err) => net_err.user_friendly_message(),
-                            _ => format!("Failed to fetch weather: {}", error),
+                            _ => format!("获取天气数据失败: {}", error),
                         };
 
                         if self.state.current_weather.is_none() {
-                            attribution = format!("Provider failed with {error_msg} - Simulating");
+                            attribution = format!("数据源失败: {error_msg} - 模拟中");
                             let offline_weather = generate_offline_weather(&mut rng);
                             let rain_intensity = offline_weather.condition.rain_intensity();
                             let snow_intensity = offline_weather.condition.snow_intensity();
@@ -305,7 +311,7 @@ impl App {
                                 .update_wind(wind_speed as f32, wind_direction as f32);
                         } else {
                             self.state.set_offline_mode(true);
-                            attribution = format!("Provider failed with {error_msg}");
+                            attribution = format!("数据源失败: {error_msg}");
                         }
                     }
                 },
@@ -371,12 +377,14 @@ impl App {
             self.state.update_cached_info();
 
             if !self.hide_hud {
-                renderer.render_line_colored(
-                    2,
-                    1,
-                    &self.state.cached_weather_info,
-                    crossterm::style::Color::Cyan,
-                )?;
+                for (i, line) in self.state.cached_weather_info.iter().enumerate() {
+                    renderer.render_line_colored(
+                        2,
+                        1 + i as u16,
+                        line,
+                        crossterm::style::Color::Cyan,
+                    )?;
+                }
             }
 
             let attribution_x = if term_width > attribution.len() as u16 {

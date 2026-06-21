@@ -82,32 +82,32 @@ impl WeatherCondition {
     #[allow(dead_code)]
     pub fn description(&self) -> &'static str {
         match self {
-            Self::Clear => "Clear sunny sky",
-            Self::PartlyCloudy => "Partial cloud coverage",
-            Self::Cloudy => "Cloudy sky",
-            Self::Overcast => "Overcast sky",
-            Self::Fog => "Foggy conditions",
-            Self::Drizzle => "Light drizzle",
-            Self::Rain => "Rain",
-            Self::FreezingRain => "Freezing rain",
-            Self::RainShowers => "Rain showers",
-            Self::Snow => "Snow",
-            Self::SnowGrains => "Snow grains",
-            Self::SnowShowers => "Snow showers",
-            Self::Thunderstorm => "Thunderstorm",
-            Self::ThunderstormHail => "Thunderstorm with hail",
+            Self::Clear => "晴朗天空",
+            Self::PartlyCloudy => "局部多云",
+            Self::Cloudy => "多云",
+            Self::Overcast => "阴天",
+            Self::Fog => "雾天",
+            Self::Drizzle => "毛毛雨",
+            Self::Rain => "雨",
+            Self::FreezingRain => "冻雨",
+            Self::RainShowers => "阵雨",
+            Self::Snow => "雪",
+            Self::SnowGrains => "雪粒",
+            Self::SnowShowers => "阵雪",
+            Self::Thunderstorm => "雷暴",
+            Self::ThunderstormHail => "雷暴伴冰雹",
         }
     }
 
     #[allow(dead_code)]
     pub fn group(&self) -> &'static str {
         match self {
-            Self::Clear | Self::PartlyCloudy | Self::Cloudy | Self::Overcast => "Clear Skies",
+            Self::Clear | Self::PartlyCloudy | Self::Cloudy | Self::Overcast => "晴天",
             Self::Fog | Self::Drizzle | Self::Rain | Self::FreezingRain | Self::RainShowers => {
-                "Precipitation"
+                "降水"
             }
-            Self::Snow | Self::SnowGrains | Self::SnowShowers => "Snow",
-            Self::Thunderstorm | Self::ThunderstormHail => "Storms",
+            Self::Snow | Self::SnowGrains | Self::SnowShowers => "降雪",
+            Self::Thunderstorm | Self::ThunderstormHail => "风暴",
         }
     }
 
@@ -176,7 +176,7 @@ impl std::str::FromStr for WeatherCondition {
             .iter()
             .find(|c| c.as_str() == normalized)
             .copied()
-            .ok_or_else(|| format!("Unknown weather condition: '{}'", s))
+            .ok_or_else(|| format!("未知的天气状况: '{}'", s))
     }
 }
 
@@ -204,6 +204,7 @@ pub enum PrecipitationUnit {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct WeatherData {
     pub condition: WeatherCondition,
     pub temperature: f64,
@@ -214,6 +215,28 @@ pub struct WeatherData {
     pub moon_phase: Option<f64>,
     pub timestamp: String,
     pub attribution: String,
+    pub daily_high: Option<f64>,
+    pub daily_low: Option<f64>,
+    pub condition_duration_hours: Option<f64>,
+}
+
+impl Default for WeatherData {
+    fn default() -> Self {
+        Self {
+            condition: WeatherCondition::Clear,
+            temperature: 0.0,
+            precipitation: 0.0,
+            wind_speed: 0.0,
+            wind_direction: 0.0,
+            sun: CelestialEvents::from_bool(true),
+            moon_phase: None,
+            timestamp: String::new(),
+            attribution: String::new(),
+            daily_high: None,
+            daily_low: None,
+            condition_duration_hours: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, serde::Deserialize)]

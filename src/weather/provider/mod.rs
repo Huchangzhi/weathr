@@ -18,6 +18,12 @@ pub struct WeatherProviderResponse {
     pub moon_phase: Option<f64>,
     pub timestamp: String,
     pub attribution: String,
+    #[serde(default)]
+    pub daily_high: Option<f64>,
+    #[serde(default)]
+    pub daily_low: Option<f64>,
+    #[serde(default)]
+    pub condition_duration_hours: Option<f64>,
 }
 
 #[async_trait]

@@ -47,6 +47,9 @@ fn test_weather_normalizer_integration_all_wmo_codes() {
             moon_phase: None,
             timestamp: "2024-01-01T12:00".to_string(),
             attribution: "".to_string(),
+            daily_high: None,
+            daily_low: None,
+            condition_duration_hours: None,
         };
 
         let weather = WeatherNormalizer::normalize(response);
@@ -70,6 +73,9 @@ fn test_weather_normalizer_integration_day_night() {
         moon_phase: None,
         timestamp: "2024-01-01T12:00".to_string(),
         attribution: "".to_string(),
+        daily_high: None,
+        daily_low: None,
+        condition_duration_hours: None,
     };
 
     let response_night = WeatherProviderResponse {
@@ -82,6 +88,9 @@ fn test_weather_normalizer_integration_day_night() {
         moon_phase: None,
         timestamp: "2024-01-01T00:00".to_string(),
         attribution: "".to_string(),
+        daily_high: None,
+        daily_low: None,
+        condition_duration_hours: None,
     };
 
     let weather_day = WeatherNormalizer::normalize(response_day);
@@ -103,6 +112,9 @@ fn test_weather_normalizer_integration_clear_conditions() {
         moon_phase: None,
         timestamp: "2024-06-15T14:00".to_string(),
         attribution: "".to_string(),
+        daily_high: None,
+        daily_low: None,
+        condition_duration_hours: None,
     };
 
     let weather = WeatherNormalizer::normalize(response);
@@ -125,6 +137,9 @@ fn test_weather_normalizer_integration_rainy_conditions() {
         moon_phase: None,
         timestamp: "2024-03-20T10:00".to_string(),
         attribution: "".to_string(),
+        daily_high: None,
+        daily_low: None,
+        condition_duration_hours: None,
     };
 
     let weather = WeatherNormalizer::normalize(response);
@@ -145,6 +160,9 @@ fn test_weather_normalizer_integration_snowy_conditions() {
         moon_phase: None,
         timestamp: "2024-01-10T22:00".to_string(),
         attribution: "".to_string(),
+        daily_high: None,
+        daily_low: None,
+        condition_duration_hours: None,
     };
 
     let weather = WeatherNormalizer::normalize(response);

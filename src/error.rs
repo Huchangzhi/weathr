@@ -123,24 +123,24 @@ impl NetworkError {
     pub fn user_friendly_message(&self) -> String {
         match self {
             NetworkError::DnsFailure { url, .. } => {
-                format!("Cannot reach {url}. Check your internet connection or DNS settings.")
+                format!("无法访问 {url}。请检查网络连接或 DNS 设置。")
             }
             NetworkError::Timeout { url, timeout_secs } => {
                 format!(
-                    "Request to {url} timed out after {timeout_secs}s. Check your internet connection."
+                    "请求 {url} 超时 ({timeout_secs}秒)。请检查网络连接。"
                 )
             }
             NetworkError::ConnectionRefused { url } => {
-                format!("Cannot connect to {url}. The service may be down.")
+                format!("无法连接 {url}。服务可能已停止。")
             }
             NetworkError::HttpError { url, status, .. } => {
-                format!("Server error from {url}: HTTP {status}")
+                format!("来自 {url} 的服务器错误: HTTP {status}")
             }
             NetworkError::JsonParse { url, .. } => {
-                format!("Received invalid data from {url}")
+                format!("从 {url} 接收到无效数据")
             }
-            NetworkError::ClientCreation(_) => "Failed to initialize HTTP client".to_string(),
-            NetworkError::Other(e) => format!("Network error: {e}"),
+            NetworkError::ClientCreation(_) => "HTTP 客户端初始化失败".to_string(),
+            NetworkError::Other(e) => format!("网络错误: {e}"),
         }
     }
 }
@@ -223,18 +223,18 @@ impl TerminalError {
                 min_height,
             } => {
                 format!(
-                    "Terminal window is too small ({width}x{height}).\n\
-                     Please resize to at least {min_width}x{min_height} characters."
+                    "终端窗口太小 ({width}x{height})。\n\
+                     请调整至至少 {min_width}x{min_height} 个字符。"
                 )
             }
-            TerminalError::NotATty => "This application must be run in a terminal.\n\
-                 It cannot work when output is redirected or piped."
+            TerminalError::NotATty => "此程序必须在终端中运行。\n\
+                 不支持输出重定向或管道。"
                 .to_string(),
-            TerminalError::RawModeError(_) => "Failed to initialize terminal raw mode.\n\
-                 You may need to run this in a proper terminal emulator."
+            TerminalError::RawModeError(_) => "终端原始模式初始化失败。\n\
+                 可能需要在合适的终端模拟器中运行。"
                 .to_string(),
-            TerminalError::SizeError(_) => "Cannot detect terminal size.\n\
-                 Make sure you're running in a standard terminal."
+            TerminalError::SizeError(_) => "无法检测终端大小。\n\
+                 请确保在标准终端中运行。"
                 .to_string(),
             _ => self.to_string(),
         }
@@ -259,45 +259,45 @@ impl GeolocationError {
             GeolocationError::Unreachable(net_err) => match net_err {
                 NetworkError::Timeout { timeout_secs, .. } => {
                     format!(
-                        "Location detection timed out after {timeout_secs}s. Check your internet connection.\n\
-                         Using configured/default location."
+                        "位置检测超时 ({timeout_secs}秒)。请检查网络连接。\n\
+                         将使用配置/默认位置。"
                     )
                 }
                 NetworkError::DnsFailure { .. } => {
-                    "Cannot reach location service. Check your DNS settings.\n\
-                     Using configured/default location."
+                    "无法访问位置服务。请检查 DNS 设置。\n\
+                     将使用配置/默认位置。"
                         .to_string()
                 }
                 NetworkError::ConnectionRefused { .. } => {
-                    "Location service is unavailable. Try again later.\n\
-                     Using configured/default location."
+                    "位置服务不可用。请稍后重试。\n\
+                     将使用配置/默认位置。"
                         .to_string()
                 }
                 NetworkError::HttpError { status, .. } => {
                     format!(
-                        "Location service returned error (HTTP {status}).\n\
-                         Using configured/default location."
+                        "位置服务返回错误 (HTTP {status})。\n\
+                         将使用配置/默认位置。"
                     )
                 }
-                NetworkError::JsonParse { .. } => "Received invalid data from location service.\n\
-                     Using configured/default location."
+                NetworkError::JsonParse { .. } => "从位置服务接收到无效数据。\n\
+                     将使用配置/默认位置。"
                     .to_string(),
-                NetworkError::ClientCreation(_) => "Failed to initialize network client.\n\
-                     Using configured/default location."
+                NetworkError::ClientCreation(_) => "网络客户端初始化失败。\n\
+                     将使用配置/默认位置。"
                     .to_string(),
                 NetworkError::Other(_) => {
-                    "Cannot auto-detect location. Check your internet connection.\n\
-                     Using configured/default location."
+                    "无法自动检测位置。请检查网络连接。\n\
+                     将使用配置/默认位置。"
                         .to_string()
                 }
             },
-            GeolocationError::ParseError(_) => "Received invalid location data.\n\
-                 Using configured/default location."
+            GeolocationError::ParseError(_) => "接收到无效的位置数据。\n\
+                 将使用配置/默认位置。"
                 .to_string(),
             GeolocationError::RetriesExhausted { attempts } => {
                 format!(
-                    "Failed to detect location after {attempts} attempts.\n\
-                     Using configured/default location."
+                    "经过 {attempts} 次尝试后仍无法检测位置。\n\
+                     将使用配置/默认位置。"
                 )
             }
         }
