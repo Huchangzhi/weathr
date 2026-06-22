@@ -48,8 +48,7 @@ struct DailyData {
 #[derive(Debug, Deserialize)]
 struct HourlyData {
     time: Vec<String>,
-    #[serde(deserialize_with = "deserialize_i32_vec_from_numbers")]
-    weather_code: Vec<i32>,
+    weather_code: Vec<Option<f64>>,
 }
 
 fn deserialize_i32_from_number<'de, D>(deserializer: D) -> Result<i32, D::Error>
@@ -74,30 +73,10 @@ where
     }
 }
 
-fn deserialize_i32_vec_from_numbers<'de, D>(deserializer: D) -> Result<Vec<i32>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum Number {
-        Integer(i32),
-        Float(f64),
-    }
-
-    let numbers: Vec<Number> = Vec::deserialize(deserializer)?;
-    numbers
-        .into_iter()
-        .map(|n| match n {
-            Number::Integer(v) => Ok(v),
-            Number::Float(v) => {
-                if !v.is_finite() {
-                    Err(de::Error::custom("expected a finite numeric value"))
-                } else {
-                    Ok(v.round() as i32)
-                }
-            }
-        })
+fn hourly_codes_to_i32(codes: &[Option<f64>]) -> Vec<i32> {
+    codes
+        .iter()
+        .map(|c| c.map(|v| v.round() as i32).unwrap_or(0))
         .collect()
 }
 
@@ -116,7 +95,8 @@ fn wmo_code_group(code: i32) -> u8 {
 fn estimate_condition_duration(
     current_time: &str,
     current_code: i32,
-    hourly: &HourlyData,
+    hourly_times: &[String],
+    hourly_codes: &[i32],
 ) -> Option<f64> {
     use chrono::NaiveDateTime;
 
@@ -128,25 +108,23 @@ fn estimate_condition_duration(
     let current_hour = current_dt.format("%Y-%m-%dT%H:00").to_string();
     let current_group = wmo_code_group(current_code);
 
-    let start_idx = hourly
-        .time
+    let start_idx = hourly_times
         .iter()
         .position(|t| t == &current_hour)
         .unwrap_or_else(|| {
-            hourly
-                .time
+            hourly_times
                 .iter()
                 .position(|t| t > &current_hour)
-                .unwrap_or(hourly.time.len())
+                .unwrap_or(hourly_times.len())
         });
 
-    if start_idx >= hourly.weather_code.len() {
+    if start_idx >= hourly_codes.len() {
         return None;
     }
 
     let mut count = 0.0;
-    for i in start_idx..hourly.weather_code.len().min(start_idx + 24) {
-        if wmo_code_group(hourly.weather_code[i]) == current_group {
+    for i in start_idx..hourly_codes.len().min(start_idx + 24) {
+        if wmo_code_group(hourly_codes[i]) == current_group {
             count += 1.0;
         } else {
             break;
@@ -257,10 +235,10 @@ impl WeatherProvider for OpenMeteoProvider {
                 .map(|t| normalize_temperature(*t, units.temperature))
         });
 
-        let condition_duration_hours =
-            data.hourly
-                .as_ref()
-                .and_then(|h| estimate_condition_duration(&data.current.time, data.current.weather_code, h));
+        let condition_duration_hours = data.hourly.as_ref().and_then(|h| {
+            let codes = hourly_codes_to_i32(&h.weather_code);
+            estimate_condition_duration(&data.current.time, data.current.weather_code, &h.time, &codes)
+        });
 
         Ok(WeatherProviderResponse {
             weather_code: data.current.weather_code,
@@ -320,21 +298,19 @@ mod tests {
 
     #[test]
     fn test_estimate_condition_duration() {
-        let hourly = HourlyData {
-            time: vec![
-                "2024-01-01T12:00".to_string(),
-                "2024-01-01T13:00".to_string(),
-                "2024-01-01T14:00".to_string(),
-                "2024-01-01T15:00".to_string(),
-                "2024-01-01T16:00".to_string(),
-            ],
-            weather_code: vec![0, 1, 2, 61, 61],
-        };
+        let times = vec![
+            "2024-01-01T12:00".to_string(),
+            "2024-01-01T13:00".to_string(),
+            "2024-01-01T14:00".to_string(),
+            "2024-01-01T15:00".to_string(),
+            "2024-01-01T16:00".to_string(),
+        ];
+        let codes = vec![0, 1, 2, 61, 61];
 
-        let duration = estimate_condition_duration("2024-01-01T12:00", 0, &hourly);
+        let duration = estimate_condition_duration("2024-01-01T12:00", 0, &times, &codes);
         assert_eq!(duration, Some(3.0));
 
-        let duration = estimate_condition_duration("2024-01-01T15:00", 61, &hourly);
+        let duration = estimate_condition_duration("2024-01-01T15:00", 61, &times, &codes);
         assert_eq!(duration, Some(2.0));
     }
 }
