@@ -264,6 +264,8 @@ mod tests {
             daily_high: None,
             daily_low: None,
             condition_duration_hours: None,
+            next_condition: None,
+            next_condition_start: None,
         });
         let conditions = WeatherConditions {
             sun,
@@ -309,6 +311,8 @@ mod tests {
             daily_high: None,
             daily_low: None,
             condition_duration_hours: None,
+            next_condition: None,
+            next_condition_start: None,
         });
         let conditions = WeatherConditions {
             sun,

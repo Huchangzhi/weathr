@@ -169,10 +169,23 @@ impl AppState {
 
             let duration_str = Self::format_duration(weather.condition_duration_hours);
 
-            let row2 = format!(
-                "最高: {} | 最低: {} | 预计持续: {} | 按'q'退出",
-                high_str, low_str, duration_str
-            );
+            let next_str = match (&weather.next_condition, &weather.next_condition_start) {
+                (Some(cond), Some(time)) => format!("→ {}: {}", cond, time),
+                (Some(cond), None) => format!("→ {}", cond),
+                _ => String::new(),
+            };
+
+            let row2 = if next_str.is_empty() {
+                format!(
+                    "最高: {} | 最低: {} | 预计持续: {} | 按'q'退出",
+                    high_str, low_str, duration_str
+                )
+            } else {
+                format!(
+                    "最高: {} | 最低: {} | 持续: {} | {} | 按'q'退出",
+                    high_str, low_str, duration_str, next_str
+                )
+            };
 
             vec![row1, row2]
         } else {
@@ -297,6 +310,8 @@ mod tests {
             daily_high: None,
             daily_low: None,
             condition_duration_hours: None,
+            next_condition: None,
+            next_condition_start: None,
         };
         app.update_weather(weather);
 
@@ -439,6 +454,8 @@ mod tests {
             weather.daily_high = Some(25.0);
             weather.daily_low = Some(15.0);
             weather.condition_duration_hours = Some(3.0);
+            weather.next_condition = Some("降水".to_string());
+            weather.next_condition_start = Some("06/22 18:00".to_string());
         }
         app.update_cached_info();
 
@@ -448,6 +465,8 @@ mod tests {
         assert!(app.cached_weather_info[1].contains("25"));
         assert!(app.cached_weather_info[1].contains("15"));
         assert!(app.cached_weather_info[1].contains("约3小时"));
+        assert!(app.cached_weather_info[1].contains("降水"));
+        assert!(app.cached_weather_info[1].contains("18:00"));
     }
 
     #[test]

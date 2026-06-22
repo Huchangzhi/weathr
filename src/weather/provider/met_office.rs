@@ -208,6 +208,8 @@ impl WeatherProvider for MetOfficeProvider {
             daily_high: None,
             daily_low: None,
             condition_duration_hours: None,
+            next_condition: None,
+            next_condition_start: None,
         };
 
         // A provider should ask something else if it doesn't have the data, the provider shouldn't have to care about

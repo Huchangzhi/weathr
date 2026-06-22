@@ -92,12 +92,29 @@ fn wmo_code_group(code: i32) -> u8 {
     }
 }
 
-fn estimate_condition_duration(
+fn wmo_group_name(group: u8) -> &'static str {
+    match group {
+        0 => "晴好",
+        1 => "雾",
+        2 => "降水",
+        3 => "降雪",
+        4 => "雷暴",
+        _ => "未知",
+    }
+}
+
+struct ForecastInfo {
+    duration_hours: f64,
+    next_condition: Option<String>,
+    next_condition_start: Option<String>,
+}
+
+fn estimate_forecast(
     current_time: &str,
     current_code: i32,
     hourly_times: &[String],
     hourly_codes: &[i32],
-) -> Option<f64> {
+) -> Option<ForecastInfo> {
     use chrono::NaiveDateTime;
 
     let current_dt = current_time
@@ -123,19 +140,41 @@ fn estimate_condition_duration(
     }
 
     let mut count = 0.0;
-    for i in start_idx..hourly_codes.len().min(start_idx + 24) {
-        if wmo_code_group(hourly_codes[i]) == current_group {
+    let mut next_group: Option<u8> = None;
+    let mut next_idx = None;
+    for i in start_idx..hourly_codes.len().min(start_idx + 48) {
+        let g = wmo_code_group(hourly_codes[i]);
+        if g == current_group {
             count += 1.0;
         } else {
+            next_group = Some(g);
+            next_idx = Some(i);
             break;
         }
     }
 
     if count == 0.0 {
-        None
-    } else {
-        Some(count)
+        return None;
     }
+
+    let (next_condition, next_condition_start) = match (next_group, next_idx) {
+        (Some(g), Some(idx)) if idx < hourly_times.len() => {
+            let name = wmo_group_name(g).to_string();
+            let start_time = hourly_times[idx]
+                .parse::<NaiveDateTime>()
+                .or_else(|_| NaiveDateTime::parse_from_str(&hourly_times[idx], "%Y-%m-%dT%H:%M"))
+                .map(|dt| dt.format("%m/%d %H:%M").to_string())
+                .ok();
+            (Some(name), start_time)
+        }
+        _ => (None, None),
+    };
+
+    Some(ForecastInfo {
+        duration_hours: count,
+        next_condition,
+        next_condition_start,
+    })
 }
 
 impl OpenMeteoProvider {
@@ -235,10 +274,14 @@ impl WeatherProvider for OpenMeteoProvider {
                 .map(|t| normalize_temperature(*t, units.temperature))
         });
 
-        let condition_duration_hours = data.hourly.as_ref().and_then(|h| {
+        let forecast = data.hourly.as_ref().and_then(|h| {
             let codes = hourly_codes_to_i32(&h.weather_code);
-            estimate_condition_duration(&data.current.time, data.current.weather_code, &h.time, &codes)
+            estimate_forecast(&data.current.time, data.current.weather_code, &h.time, &codes)
         });
+
+        let condition_duration_hours = forecast.as_ref().map(|f| f.duration_hours);
+        let next_condition = forecast.as_ref().and_then(|f| f.next_condition.clone());
+        let next_condition_start = forecast.as_ref().and_then(|f| f.next_condition_start.clone());
 
         Ok(WeatherProviderResponse {
             weather_code: data.current.weather_code,
@@ -253,6 +296,8 @@ impl WeatherProvider for OpenMeteoProvider {
             daily_high,
             daily_low,
             condition_duration_hours,
+            next_condition,
+            next_condition_start,
         })
     }
 }
@@ -297,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn test_estimate_condition_duration() {
+    fn test_estimate_forecast() {
         let times = vec![
             "2024-01-01T12:00".to_string(),
             "2024-01-01T13:00".to_string(),
@@ -307,10 +352,13 @@ mod tests {
         ];
         let codes = vec![0, 1, 2, 61, 61];
 
-        let duration = estimate_condition_duration("2024-01-01T12:00", 0, &times, &codes);
-        assert_eq!(duration, Some(3.0));
+        let forecast = estimate_forecast("2024-01-01T12:00", 0, &times, &codes).unwrap();
+        assert_eq!(forecast.duration_hours, 3.0);
+        assert_eq!(forecast.next_condition, Some("降水".to_string()));
+        assert_eq!(forecast.next_condition_start, Some("01/01 15:00".to_string()));
 
-        let duration = estimate_condition_duration("2024-01-01T15:00", 61, &times, &codes);
-        assert_eq!(duration, Some(2.0));
+        let forecast = estimate_forecast("2024-01-01T15:00", 61, &times, &codes).unwrap();
+        assert_eq!(forecast.duration_hours, 2.0);
+        assert_eq!(forecast.next_condition, None);
     }
 }

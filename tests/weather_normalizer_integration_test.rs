@@ -50,6 +50,8 @@ fn test_weather_normalizer_integration_all_wmo_codes() {
             daily_high: None,
             daily_low: None,
             condition_duration_hours: None,
+            next_condition: None,
+            next_condition_start: None,
         };
 
         let weather = WeatherNormalizer::normalize(response);
@@ -76,6 +78,8 @@ fn test_weather_normalizer_integration_day_night() {
         daily_high: None,
         daily_low: None,
         condition_duration_hours: None,
+        next_condition: None,
+        next_condition_start: None,
     };
 
     let response_night = WeatherProviderResponse {
@@ -91,6 +95,8 @@ fn test_weather_normalizer_integration_day_night() {
         daily_high: None,
         daily_low: None,
         condition_duration_hours: None,
+        next_condition: None,
+        next_condition_start: None,
     };
 
     let weather_day = WeatherNormalizer::normalize(response_day);
@@ -115,6 +121,8 @@ fn test_weather_normalizer_integration_clear_conditions() {
         daily_high: None,
         daily_low: None,
         condition_duration_hours: None,
+        next_condition: None,
+        next_condition_start: None,
     };
 
     let weather = WeatherNormalizer::normalize(response);
@@ -140,6 +148,8 @@ fn test_weather_normalizer_integration_rainy_conditions() {
         daily_high: None,
         daily_low: None,
         condition_duration_hours: None,
+        next_condition: None,
+        next_condition_start: None,
     };
 
     let weather = WeatherNormalizer::normalize(response);
@@ -163,6 +173,8 @@ fn test_weather_normalizer_integration_snowy_conditions() {
         daily_high: None,
         daily_low: None,
         condition_duration_hours: None,
+        next_condition: None,
+        next_condition_start: None,
     };
 
     let weather = WeatherNormalizer::normalize(response);

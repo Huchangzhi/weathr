@@ -121,6 +121,8 @@ fn generate_offline_weather(rng: &mut impl rand::Rng) -> WeatherData {
         daily_high: None,
         daily_low: None,
         condition_duration_hours: None,
+        next_condition: None,
+        next_condition_start: None,
     }
 }
 
@@ -199,6 +201,8 @@ impl App {
                 daily_high: None,
                 daily_low: None,
                 condition_duration_hours: None,
+                next_condition: None,
+                next_condition_start: None,
             };
 
             let rain_intensity = weather.condition.rain_intensity();

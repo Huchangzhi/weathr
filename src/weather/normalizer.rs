@@ -20,6 +20,8 @@ impl WeatherNormalizer {
             daily_high: response.daily_high,
             daily_low: response.daily_low,
             condition_duration_hours: response.condition_duration_hours,
+            next_condition: response.next_condition,
+            next_condition_start: response.next_condition_start,
         }
     }
 
@@ -110,6 +112,8 @@ mod tests {
             daily_high: Some(25.0),
             daily_low: Some(15.0),
             condition_duration_hours: Some(3.0),
+            next_condition: Some("降水".to_string()),
+            next_condition_start: Some("01/01 15:00".to_string()),
         };
 
         let data = WeatherNormalizer::normalize(response);
@@ -121,5 +125,7 @@ mod tests {
         assert_eq!(data.daily_high, Some(25.0));
         assert_eq!(data.daily_low, Some(15.0));
         assert_eq!(data.condition_duration_hours, Some(3.0));
+        assert_eq!(data.next_condition, Some("降水".to_string()));
+        assert_eq!(data.next_condition_start, Some("01/01 15:00".to_string()));
     }
 }

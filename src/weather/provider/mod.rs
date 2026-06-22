@@ -24,6 +24,10 @@ pub struct WeatherProviderResponse {
     pub daily_low: Option<f64>,
     #[serde(default)]
     pub condition_duration_hours: Option<f64>,
+    #[serde(default)]
+    pub next_condition: Option<String>,
+    #[serde(default)]
+    pub next_condition_start: Option<String>,
 }
 
 #[async_trait]

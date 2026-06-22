@@ -218,6 +218,8 @@ pub struct WeatherData {
     pub daily_high: Option<f64>,
     pub daily_low: Option<f64>,
     pub condition_duration_hours: Option<f64>,
+    pub next_condition: Option<String>,
+    pub next_condition_start: Option<String>,
 }
 
 impl Default for WeatherData {
@@ -235,6 +237,8 @@ impl Default for WeatherData {
             daily_high: None,
             daily_low: None,
             condition_duration_hours: None,
+            next_condition: None,
+            next_condition_start: None,
         }
     }
 }
