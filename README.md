@@ -1,3 +1,5 @@
+此仓库为汉化版
+
 # weathr
 
 [![Crates.io](https://img.shields.io/crates/v/weathr.svg)](https://crates.io/crates/weathr)
