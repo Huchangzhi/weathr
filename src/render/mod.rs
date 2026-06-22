@@ -27,6 +27,7 @@ fn clamp_terminal_size(width: u16, height: u16) -> (u16, u16) {
 struct Cell {
     character: char,
     color: Color,
+    spacer: bool,
 }
 
 impl Default for Cell {
@@ -34,6 +35,7 @@ impl Default for Cell {
         Self {
             character: ' ',
             color: Color::Reset,
+            spacer: false,
         }
     }
 }
@@ -144,7 +146,19 @@ impl TerminalRenderer {
                             self.buffer[buffer_idx] = Cell {
                                 character: ch,
                                 color: adjusted_color,
+                                spacer: false,
                             };
+                        }
+                        let w = ch.width().unwrap_or(1);
+                        if w > 1 && col + 1 < self.width as usize {
+                            let spacer_idx = (row as usize) * (self.width as usize) + col + 1;
+                            if spacer_idx < self.buffer.len() {
+                                self.buffer[spacer_idx] = Cell {
+                                    character: ' ',
+                                    color: adjusted_color,
+                                    spacer: true,
+                                };
+                            }
                         }
                     }
                     col += ch.width().unwrap_or(1);
@@ -176,7 +190,18 @@ impl TerminalRenderer {
                     self.buffer[buffer_idx] = Cell {
                         character: ch,
                         color: adjusted_color,
+                        spacer: false,
                     };
+                }
+                if w > 1 && col + 1 < self.width as usize {
+                    let spacer_idx = (y as usize) * (self.width as usize) + col + 1;
+                    if spacer_idx < self.buffer.len() {
+                        self.buffer[spacer_idx] = Cell {
+                            character: ' ',
+                            color: adjusted_color,
+                            spacer: true,
+                        };
+                    }
                 }
             }
             col += w;
@@ -191,6 +216,7 @@ impl TerminalRenderer {
                 self.buffer[buffer_idx] = Cell {
                     character: ch,
                     color: self.capabilities.adjust_color(color),
+                    spacer: false,
                 };
             }
         }
@@ -219,6 +245,10 @@ impl TerminalRenderer {
 
                 let cell = self.buffer[idx];
                 let last_cell = self.last_buffer[idx];
+
+                if cell.spacer {
+                    continue;
+                }
 
                 if cell != last_cell {
                     let expected_pos = last_pos.map(|(lx, ly)| (lx + 1, ly));
