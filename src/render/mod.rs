@@ -8,6 +8,7 @@ use crossterm::{
     terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io::{self, BufWriter, IsTerminal, Stdout, Write};
+use unicode_width::UnicodeWidthChar;
 
 const MIN_TERMINAL_WIDTH: u16 = 70;
 const MIN_TERMINAL_HEIGHT: u16 = 20;
@@ -120,21 +121,25 @@ impl TerminalRenderer {
         start_row: u16,
         color: Color,
     ) -> io::Result<()> {
-        let max_width = lines.iter().map(|l| l.len()).max().unwrap_or(0);
-        let start_col = if self.width as usize > max_width {
-            (self.width as usize - max_width) / 2
-        } else {
-            0
-        };
+        let max_width = lines
+            .iter()
+            .map(|l| l.chars().map(|c| c.width().unwrap_or(1)).sum::<usize>())
+            .max()
+            .unwrap_or(0);
         let adjusted_color = self.capabilities.adjust_color(color);
 
         for (idx, line) in lines.iter().enumerate() {
             let row = start_row + idx as u16;
             if row < self.height {
-                for (char_idx, ch) in line.chars().enumerate() {
-                    let col = start_col as u16 + char_idx as u16;
-                    if col < self.width {
-                        let buffer_idx = (row as usize) * (self.width as usize) + (col as usize);
+                let start_col = if self.width as usize > max_width {
+                    (self.width as usize - max_width) / 2
+                } else {
+                    0
+                };
+                let mut col = start_col;
+                for ch in line.chars() {
+                    if col < self.width as usize {
+                        let buffer_idx = (row as usize) * (self.width as usize) + col;
                         if buffer_idx < self.buffer.len() {
                             self.buffer[buffer_idx] = Cell {
                                 character: ch,
@@ -142,6 +147,7 @@ impl TerminalRenderer {
                             };
                         }
                     }
+                    col += ch.width().unwrap_or(1);
                 }
             }
         }
@@ -161,10 +167,11 @@ impl TerminalRenderer {
         }
         let adjusted_color = self.capabilities.adjust_color(color);
 
-        for (idx, ch) in text.chars().enumerate() {
-            let col = x + idx as u16;
-            if col < self.width {
-                let buffer_idx = (y as usize) * (self.width as usize) + (col as usize);
+        let mut col = x as usize;
+        for ch in text.chars() {
+            let w = ch.width().unwrap_or(1);
+            if col < self.width as usize {
+                let buffer_idx = (y as usize) * (self.width as usize) + col;
                 if buffer_idx < self.buffer.len() {
                     self.buffer[buffer_idx] = Cell {
                         character: ch,
@@ -172,6 +179,7 @@ impl TerminalRenderer {
                     };
                 }
             }
+            col += w;
         }
         Ok(())
     }
