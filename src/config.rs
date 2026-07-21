@@ -46,6 +46,7 @@ pub enum Provider {
     #[default]
     OpenMeteo,
     MetOffice,
+    Sixty,
 }
 
 #[derive(Deserialize, Debug, Clone)]

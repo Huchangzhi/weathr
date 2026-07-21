@@ -10,6 +10,7 @@ use crate::theme::ThemeRegistry;
 
 use crate::weather::provider::WeatherProvider;
 use crate::weather::provider::met_office::{MetOfficeProvider, MetOfficeProviderConfig};
+use crate::weather::provider::sixty::SixtyProvider;
 use crate::weather::types::CelestialEvents;
 use crate::weather::{
     OpenMeteoProvider, WeatherClient, WeatherCondition, WeatherData, WeatherLocation,
@@ -234,6 +235,7 @@ impl App {
                     };
                     Arc::new(MetOfficeProvider::new(provider_config).unwrap())
                 }
+                Provider::Sixty => Arc::new(SixtyProvider::new()),
             };
 
             let weather_client = WeatherClient::new(provider, REFRESH_INTERVAL);
